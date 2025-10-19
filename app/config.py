@@ -30,7 +30,7 @@ class Config:
     MCP_SERVER_VERSION = "1.0.0"
     
     # Update notification settings
-    UPDATE_CHECK_INTERVAL = 0.1  # 100ms polling interval
+    UPDATE_CHECK_INTERVAL = 0.1  # 100ms polling interval (checks database for MCP changes)
 
 
 config = Config()

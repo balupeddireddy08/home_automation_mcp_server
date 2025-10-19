@@ -63,37 +63,56 @@ app.add_middleware(
 async def poll_database_changes():
     """Poll database for changes and broadcast to WebSocket clients."""
     last_update_time = None
+    last_mode = None
+    
+    print("Starting database change polling (checks every 100ms)...")
     
     while True:
         try:
             await asyncio.sleep(config.UPDATE_CHECK_INTERVAL)
             
-            # Check for database updates by comparing timestamps
-            # This is a simple polling mechanism
-            # In production, you might use triggers or a message queue
+            # Check if there are any WebSocket connections
+            if not ws_manager.active_connections:
+                continue
             
-            # For now, we'll use the signal mechanism from the WebSocket manager
-            update_data = await ws_manager.wait_for_update(timeout=0.1)
+            # Get the most recent update time from devices table
+            async with db._connection.execute(
+                "SELECT MAX(last_updated) as max_time FROM devices"
+            ) as cursor:
+                row = await cursor.fetchone()
+                current_update_time = row[0] if row else None
             
-            if update_data:
-                # Broadcast the update
-                if update_data.get("type") == "device_update":
-                    await ws_manager.broadcast_device_update(
-                        device_id=update_data.get("device_id"),
-                        room=update_data.get("room"),
-                        device_type=update_data.get("device_type"),
-                        state=update_data.get("state"),
-                        properties=update_data.get("properties")
-                    )
-                elif update_data.get("type") == "mode_change":
-                    await ws_manager.broadcast_mode_change(update_data.get("mode"))
-                elif update_data.get("type") == "full_refresh":
-                    await ws_manager.broadcast_full_refresh()
+            # Check for home mode changes
+            current_mode = await db.get_active_mode()
+            
+            # If database has been updated, broadcast changes
+            if last_update_time is not None and current_update_time != last_update_time:
+                print(f"📡 Database change detected! Broadcasting to {len(ws_manager.active_connections)} clients...")
+                
+                # Broadcast full refresh to all clients
+                await ws_manager.broadcast_full_refresh()
+                
+                # Update last known time
+                last_update_time = current_update_time
+            elif last_update_time is None:
+                # First run - just store the timestamp
+                last_update_time = current_update_time
+            
+            # Check for mode changes
+            if last_mode is not None and current_mode != last_mode:
+                print(f"🏠 Home mode changed to: {current_mode}")
+                await ws_manager.broadcast_mode_change(current_mode)
+                last_mode = current_mode
+            elif last_mode is None:
+                last_mode = current_mode
                     
         except asyncio.CancelledError:
+            print("Stopping database polling...")
             break
         except Exception as e:
             print(f"Error in database polling: {e}")
+            import traceback
+            traceback.print_exc()
 
 
 @app.get("/")
