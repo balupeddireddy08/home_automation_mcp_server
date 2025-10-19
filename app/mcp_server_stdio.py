@@ -1,10 +1,15 @@
 """FastMCP Server for Home Automation - stdio protocol for AI assistants."""
 import asyncio
 import json
+import sys
+from pathlib import Path
 from typing import Optional, Literal
 from datetime import datetime
 from contextlib import asynccontextmanager
 from mcp.server.fastmcp import FastMCP
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.config import config
 from app.db.database import db
