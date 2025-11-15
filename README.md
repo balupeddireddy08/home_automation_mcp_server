@@ -9,20 +9,20 @@ AI Assistant (Claude Desktop/VS Code)
         ↓ stdio MCP Protocol
     FastMCP Server
         ↓
-    SQLite Database ← [Real-time] ← FastAPI Server
-                                        ↓ WebSocket
-                                    React Frontend
+    SQLite Database ← [Real-time Polling] ← FastAPI Server
+                                                ↓ WebSocket
+                                            React Frontend
 ```
 
 **Key Components:**
-- **FastMCP Server** (`app/mcp_server_stdio.py`) - Handles AI interactions via stdio protocol
-- **FastAPI Server** (`app/main.py`) - REST API + WebSocket for frontend
-- **SQLite Database** - Shared state between both servers
+- **FastMCP Server** - Handles AI interactions via stdio protocol
+- **FastAPI Server** - REST API + WebSocket for real-time frontend updates
+- **SQLite Database** - Shared state between both servers with timestamp-based change detection
 - **React Frontend** - Real-time dashboard with WebSocket updates
 
 ## ✨ Features
 
-### MCP Tools (8 Tools)
+### MCP Tools (9 Tools)
 1. **control_device** - Universal device control (on/off/set/toggle)
 2. **get_device_status** - Query device states
 3. **get_sensor_reading** - Read temperature, motion sensors
@@ -32,7 +32,7 @@ AI Assistant (Claude Desktop/VS Code)
 7. **water_plants** - Control sprinkler system
 8. **start_ev_charging / stop_ev_charging** - EV charger control
 
-### Supported Devices (25+ Devices)
+### Supported Devices (24+ Sample Devices)
 - 💡 Lights (with brightness control)
 - 🌡️ Thermostat (temperature + mode control)
 - 🔒 Locks
@@ -57,30 +57,34 @@ AI Assistant (Claude Desktop/VS Code)
 
 ```bash
 pip install -r requirements.txt
-```
-
-### 2. Start the FastAPI Server
-
-```bash
-# Terminal 1
-cd app
-python main.py
-```
-
-The API server will start at `http://localhost:8000`
-
-### 3. Start the React Frontend
-
-```bash
-# Terminal 2
 cd frontend
-npm install
-npm run dev
+npm install  # First time only
 ```
 
-The frontend will be available at `http://localhost:5173`
+### 2. Start the System
 
-### 4. Configure MCP Server for Claude Desktop
+**Option A: Using the Menu (Easiest)**
+```bash
+start.bat
+```
+Then select what to start from the menu.
+
+**Option B: Direct Commands (Recommended for Development)**
+
+Open 2 separate terminals:
+
+```bash
+# Terminal 1: Start API Server (Backend)
+python app/main.py
+# → Available at http://localhost:8000
+
+# Terminal 2: Start Frontend (Dashboard)
+cd frontend
+npm run dev
+# → Available at http://localhost:5173
+```
+
+### 3. Configure MCP Server for Claude Desktop (Optional)
 
 Run the configuration helper:
 
@@ -108,49 +112,35 @@ Example configuration:
 
 Restart Claude Desktop after adding the configuration.
 
-### 5. Test MCP Server Directly
-
-```bash
-# Terminal 3
-python app/mcp_server_stdio.py
-```
-
 ## 💬 Example AI Interactions
-
-### Morning Routine
-```
-User: "Good morning! Can you prepare my home?"
-AI: [Calls set_home_mode(mode="home")]
-    [Calls control_device(action="on", room="kitchen", device_type="light")]
-Response: "Good morning! I've set your home to welcome mode and turned on the kitchen lights. Temperature is set to 72°F."
-```
-
-### Leaving Home
-```
-User: "I'm leaving for work"
-AI: [Calls set_home_mode(mode="away")]
-Response: "All set! I've turned off lights, set temperature to 65°F, and locked all doors."
-```
-
-### Bedtime
-```
-User: "I'm going to bed"
-AI: [Calls set_home_mode(mode="sleep")]
-Response: "Good night! Bedroom light is dimmed to 20%, all doors are locked, and temperature is set to 68°F."
-```
 
 ### Device Control
 ```
-User: "Turn on the living room lights to 50%"
-AI: [Calls control_device(action="set", room="living_room", device_type="light", brightness=50)]
-Response: "Living room lights set to 50% brightness."
+"Turn on the living room lights to 75%"
+"Set bedroom temperature to 72 degrees"
+"Close all the blinds"
+"Lock all doors"
 ```
 
-### Status Check
+### Status Queries
 ```
-User: "What's the temperature in the bedroom?"
-AI: [Calls get_sensor_reading(sensor_type="temperature", room="bedroom")]
-Response: "The bedroom temperature is 70°F."
+"What's the status of my home?"
+"What's the temperature in the bedroom?"
+"Are all the doors locked?"
+```
+
+### Home Modes
+```
+"I'm leaving" → Sets away mode
+"I'm going to bed" → Sets sleep mode
+"Good morning" → Sets home mode
+```
+
+### Special Actions
+```
+"Feed the fish"
+"Water the front yard for 10 minutes"
+"Start charging my car"
 ```
 
 ## 📁 Project Structure
@@ -158,7 +148,6 @@ Response: "The bedroom temperature is 70°F."
 ```
 home_automation/
 ├── app/
-│   ├── __init__.py
 │   ├── config.py                 # Configuration settings
 │   ├── main.py                   # FastAPI server
 │   ├── mcp_server_stdio.py       # FastMCP server with tools
@@ -174,20 +163,15 @@ home_automation/
 │   └── utils/
 │       └── websocket_manager.py # WebSocket manager
 ├── frontend/                     # React dashboard
-│   ├── src/
-│   │   ├── App.jsx
-│   │   ├── components/
-│   │   └── hooks/
-│   └── package.json
 ├── requirements.txt
 ├── home_automation.db           # SQLite database (auto-created)
-└── README.md
+├── README.md
+└── DEVELOPMENT.md               # Development guide
 ```
 
 ## 🔧 API Endpoints
 
 ### REST API
-
 - `GET /` - API information
 - `GET /api/devices` - Get all devices (supports `?room=` and `?type=` filters)
 - `GET /api/rooms` - Get list of rooms
@@ -215,83 +199,54 @@ home_automation/
 }
 ```
 
-## 🗄️ Database Schema
-
-### Tables
-
-**devices**
-- `id` (TEXT PRIMARY KEY)
-- `type` (TEXT)
-- `room` (TEXT)
-- `state` (TEXT)
-- `properties` (TEXT/JSON)
-- `last_updated` (TIMESTAMP)
-
-**events**
-- `id` (INTEGER PRIMARY KEY)
-- `event_type` (TEXT)
-- `device_id` (TEXT)
-- `action` (TEXT)
-- `metadata` (TEXT/JSON)
-- `timestamp` (TIMESTAMP)
-
-**home_modes**
-- `mode` (TEXT PRIMARY KEY)
-- `is_active` (BOOLEAN)
-- `last_activated` (TIMESTAMP)
-
 ## 🧪 Testing
 
-### Test FastAPI Server
+### Test API Server
 ```bash
-# Check API health
 curl http://localhost:8000
-
-# Get all devices
 curl http://localhost:8000/api/devices
-
-# Get bedroom devices
-curl http://localhost:8000/api/devices?room=bedroom
-
-# Get statistics
 curl http://localhost:8000/api/stats
 ```
 
-### Test MCP Server with Inspector
+### Test MCP Tools Directly
 ```bash
-# If you have MCP CLI tools installed
-mcp dev app/mcp_server_stdio.py
+python app/mcp_server_stdio.py
 ```
+
+### Test with MCP Inspector
+```bash
+npx @modelcontextprotocol/inspector python app/mcp_server_stdio.py
+```
+
+Open browser to: `http://localhost:6274`
+
+## 📋 All Available Commands
+
+| Command | Purpose | URL |
+|---------|---------|-----|
+| `start.bat` | Menu-driven launcher | - |
+| `python app/main.py` | Start API server | http://localhost:8000 |
+| `cd frontend && npm run dev` | Start frontend | http://localhost:5173 |
+| `python app/mcp_server_stdio.py` | Start MCP server | stdio only |
+| `npx @modelcontextprotocol/inspector python app/mcp_server_stdio.py` | Test with inspector | http://localhost:6274 |
+| `python app/stdio_config.py` | Get Claude config | - |
 
 ## 🔄 Real-time Updates Flow
 
 1. AI assistant calls MCP tool (e.g., `control_device`)
-2. MCP server updates SQLite database
-3. MCP server signals WebSocket manager
-4. WebSocket manager broadcasts update to all connected frontend clients
+2. MCP server updates SQLite database with timestamp
+3. FastAPI server detects timestamp change (polls every 100ms)
+4. FastAPI broadcasts update via WebSocket to all connected clients
 5. Frontend receives update and re-renders affected devices
-6. Total latency: < 100ms
-
-## 🛠️ Development
-
-### Add New Device Type
-
-1. Add device to `app/db/seed_data.py`
-2. Update type hints in `app/models/device.py`
-3. Add icon in frontend `DeviceCard.jsx`
-
-### Add New MCP Tool
-
-1. Add `@mcp.tool()` decorated function in `app/mcp_server_stdio.py`
-2. Include database operations and WebSocket signaling
-3. Document in docstring for AI assistant context
+6. **Total latency: < 300ms**
 
 ## 📊 Performance Metrics
 
 - ✅ Database queries: < 10ms
 - ✅ MCP tool execution: < 100ms
+- ✅ Change detection: 100ms polling
 - ✅ WebSocket broadcast: < 50ms
-- ✅ End-to-end update: < 200ms
+- ✅ End-to-end update: < 300ms
 - ✅ Concurrent WebSocket connections: 100+
 
 ## 🐛 Troubleshooting
@@ -307,8 +262,37 @@ mcp dev app/mcp_server_stdio.py
 - Ensure CORS origins include your frontend URL
 
 ### Database Locked Errors
-- Verify only one process is accessing the database
-- Check that WAL mode is enabled (automatic in database.py)
+- Verify only one process is accessing the database at a time
+- WAL mode is enabled automatically in database.py
+
+### Port Already in Use
+```bash
+# Windows PowerShell - Kill process on port
+Get-NetTCPConnection -LocalPort 8000 | 
+  Select-Object -ExpandProperty OwningProcess | 
+  ForEach-Object { Stop-Process -Id $_ -Force }
+```
+
+## 🛠️ Development
+
+### Add New Device Type
+1. Add device to `app/db/seed_data.py`
+2. Update type hints in `app/models/device.py`
+3. Add icon in frontend `DeviceCard.jsx`
+
+### Add New MCP Tool
+1. Add `@mcp.tool()` decorated function in `app/mcp_server_stdio.py`
+2. Include database operations
+3. Document in docstring for AI assistant context
+
+For detailed development information, see [DEVELOPMENT.md](DEVELOPMENT.md)
+
+## 📚 Resources
+
+- [Model Context Protocol Documentation](https://modelcontextprotocol.io)
+- [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk)
+- [FastAPI Documentation](https://fastapi.tiangolo.com)
+- [React Documentation](https://react.dev)
 
 ## 📝 License
 
@@ -317,11 +301,4 @@ MIT License - See LICENSE file for details
 ## 🤝 Contributing
 
 Contributions welcome! Please open an issue or submit a pull request.
-
-## 🙏 Acknowledgments
-
-- [Model Context Protocol](https://modelcontextprotocol.io)
-- [FastMCP](https://github.com/modelcontextprotocol/python-sdk)
-- [FastAPI](https://fastapi.tiangolo.com)
-- [React](https://react.dev)
 
